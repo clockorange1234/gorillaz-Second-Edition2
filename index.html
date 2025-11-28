@@ -1,0 +1,972 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GORILLAZ | CYBERSPACE</title>
+    <style>
+        /* ================= 核心设置 ================= */
+        :root {
+            --neon-cyan: #00f3ff;   /* 2-D 蓝 */
+            --neon-pink: #ff0099;   /* Noodle 粉 */
+            --neon-purple: #bc13fe; /* Murdoc 紫 */
+            --neon-yellow: #f9f000; /* Russel 黄 */
+            --gold: #ffd700;        /* 创始人 金 */
+            --bg-dark: #050505;
+            --bg-glass: rgba(10, 10, 30, 0.85);
+        }
+        /* 隐藏默认鼠标，保留自定义光标 */
+        body, .hover-target, button, a { 
+            cursor: none; 
+        }
+        /* 强制恢复媒体控件和按钮的交互能力 */
+        audio, video, 
+        audio::-webkit-media-controls, 
+        video::-webkit-media-controls,
+        .central-btn {
+            cursor: default !important; 
+            pointer-events: auto !important; 
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Arial Black', 'Microsoft YaHei', sans-serif;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        /* ================= 背景 Canvas ================= */
+        #canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%);
+        }
+        /* ================= 鼠标光标 ================= */
+        .cursor {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--neon-cyan);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            mix-blend-mode: difference;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            transition: transform 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .cursor.hovered {
+            transform: scale(3);
+            background: rgba(0, 243, 255, 0.2);
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 20px var(--neon-pink);
+        }
+        /* ================= 导航栏 ================= */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            box-sizing: border-box;
+        }
+        .logo {
+            font-size: 24px;
+            color: var(--neon-purple);
+            text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple);
+        }
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            text-transform: uppercase;
+            padding: 8px 15px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            background: transparent;
+        }
+        .nav-link:hover {
+            color: var(--neon-purple);
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 10px var(--neon-purple);
+        }
+        .nav-link.active {
+            background-color: var(--neon-purple);
+            color: white;
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 15px var(--neon-purple);
+        }
+
+        /* ================= Hero & 迷幻摇滚字体特效 ================= */
+        .hero {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-content {
+            z-index: 3;
+            text-align: center;
+            mix-blend-mode: screen;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        
+        /* 迷幻文字容器 */
+        .psychedelic-text {
+            font-size: 8vw;
+            margin: 0;
+            line-height: 1.1;
+            text-transform: uppercase;
+            /* Flex 布局让 span 紧凑排列 */
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1.5rem; /* 单词间距 */
+        }
+
+        .word-wrapper {
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        /* 单个字母样式 */
+        .char {
+            display: inline-block;
+            color: white;
+            position: relative;
+            /* 
+               迷幻动画核心：
+               moveY: 上下浮动
+               distort: 扭曲变形
+               colorShift: 颜色流转
+            */
+            animation: 
+                psycho-flow 3s ease-in-out infinite,
+                color-shift 6s linear infinite;
+            /* 利用 JS 注入的 --char-index 计算延迟，形成波浪 */
+            animation-delay: calc(0.1s * var(--char-index));
+            transform-origin: center bottom;
+        }
+
+        /* 动画1：迷幻流动 (模仿液体/热浪) */
+        @keyframes psycho-flow {
+            0%, 100% {
+                transform: translateY(0) scaleY(1) skewX(0deg);
+                text-shadow: 0 0 5px rgba(255,255,255,0.5);
+            }
+            50% {
+                /* 向上浮动 + 垂直轻微拉伸 + 水平轻微倾斜 = 迷幻感 */
+                transform: translateY(-15px) scaleY(1.1) skewX(-5deg);
+                text-shadow: 3px 3px 0px rgba(255, 0, 153, 0.7), -3px -3px 0px rgba(0, 243, 255, 0.7);
+                filter: blur(0.5px); /* 轻微模糊增加梦幻感 */
+            }
+        }
+
+        /* 动画2：颜色循环 */
+        @keyframes color-shift {
+            0% { color: #ffffff; }
+            25% { color: var(--neon-cyan); }
+            50% { color: #ffffff; }
+            75% { color: var(--neon-pink); }
+            100% { color: #ffffff; }
+        }
+
+        .hero p {
+            color: var(--neon-cyan);
+            letter-spacing: 5px;
+            margin-top: 20px;
+            font-size: 1.2rem;
+            text-shadow: 0 0 8px var(--neon-cyan);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; text-shadow: 0 0 15px var(--neon-cyan); } 100% { opacity: 0.8; } }
+
+        .video-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 0; filter: contrast(1.1) saturate(1.2);
+        }
+        .sound-toggle {
+            position: absolute; bottom: 40px; right: 40px; z-index: 100;
+            background: white; border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan); padding: 10px 20px;
+            font-family: 'Arial Black', sans-serif; font-size: 14px;
+            cursor: none; border-radius: 30px; text-transform: uppercase;
+            box-shadow: 0 0 10px var(--neon-cyan); transition: all 0.3s ease;
+        }
+        .sound-toggle:hover {
+            background: var(--neon-cyan); color: var(--bg-dark); transform: scale(1.1);
+        }
+
+        /* ================= 通用板块 ================= */
+        .container {
+            max-width: 1200px; margin: 100px auto; padding: 20px;
+            scroll-margin-top: 100px;
+        }
+        .section-title {
+            font-size: 3rem; text-align: center; margin-bottom: 60px;
+            color: transparent; -webkit-text-stroke: 2px var(--neon-purple);
+            text-shadow: 0 0 20px var(--neon-purple); position: relative;
+        }
+        .section-title::after {
+            content: ''; display: block; width: 150px; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+            margin: 20px auto; box-shadow: 0 0 10px var(--neon-purple);
+        }
+        
+        /* 创始人板块 Flex 居中 */
+        #founder .grid {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        
+        /* 成员板块 Grid */
+        #members .grid {
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+
+        /* ================= 卡片样式 ================= */
+        .card, .founder-card { --card-theme: var(--neon-purple); }
+
+        [data-modal="murdoc"] { --card-theme: var(--neon-purple); }
+        [data-modal="td"]     { --card-theme: var(--neon-cyan); }
+        [data-modal="noodle"] { --card-theme: var(--neon-pink); }
+        [data-modal="russel"] { --card-theme: var(--neon-yellow); }
+        [data-modal="damon"]  { --card-theme: var(--gold); }
+        [data-modal="jamie"]  { --card-theme: var(--gold); }
+
+        /* 统一竖版尺寸 */
+        .founder-card, .card {
+            height: 400px; 
+            width: 100%;
+            max-width: 300px;
+            position: relative;
+            border: 1px solid var(--card-theme);
+            overflow: hidden; background: rgba(0,0,0,0.5); cursor: none;
+            box-shadow: 0 0 10px var(--card-theme);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 0 auto;
+        }
+
+        /* --- 创始人专属：动态霓虹炫彩边框 --- */
+        @keyframes rainbowBorder {
+            0% { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
+            16% { border-color: #ffff00; box-shadow: 0 0 15px #ffff00; }
+            33% { border-color: #00ff00; box-shadow: 0 0 15px #00ff00; }
+            50% { border-color: #00ffff; box-shadow: 0 0 15px #00ffff; }
+            66% { border-color: #0000ff; box-shadow: 0 0 15px #0000ff; }
+            83% { border-color: #ff00ff; box-shadow: 0 0 15px #ff00ff; }
+            100% { border-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
+        }
+        .founder-card {
+            border-width: 2px;
+            animation: rainbowBorder 4s linear infinite;
+        }
+        .founder-card h3 {
+            color: var(--gold) !important;
+            text-shadow: 0 0 10px var(--gold), 0 0 20px #ff8800 !important;
+        }
+        
+        .founder-card::before, .card::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            z-index: 1; transition: left 0.8s ease-in-out;
+        }
+        .founder-card:hover, .card:hover {
+            transform: translateY(-20px) scale(1.05);
+            box-shadow: 0 0 30px var(--card-theme), 0 0 60px var(--card-theme);
+            border-color: var(--card-theme);
+            z-index: 10;
+        }
+        .founder-card:hover { animation: rainbowBorder 2s linear infinite; }
+        .founder-card:hover::before, .card:hover::before { left: 100%; }
+        
+        .founder-img, .card-img {
+            width: 100%; height: 100%; background-size: cover; background-position: center;
+            filter: grayscale(100%) contrast(1.2); transition: all 0.7s ease;
+        }
+        .founder-card:hover .founder-img, .card:hover .card-img {
+            filter: grayscale(0%) contrast(1.3); transform: scale(1.1);
+        }
+        
+        .founder-overlay, .card-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px;
+            background: linear-gradient(to top, black, transparent);
+            transform: translateY(100%); z-index: 2; transition: transform 0.5s ease;
+        }
+        .founder-card:hover .founder-overlay, .card:hover .card-overlay { transform: translateY(0); }
+        
+        .card h3 {
+            color: var(--card-theme);
+            font-size: 2rem; text-transform: uppercase; margin: 0;
+            text-shadow: 0 0 10px var(--card-theme);
+        }
+        .founder-card p, .card p {
+            color: white; text-shadow: 0 0 5px var(--card-theme);
+        }
+        
+        /* ================= 弹窗样式 ================= */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
+            z-index: 9998; display: flex; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden; transition: 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-grid {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(188, 19, 254, 0.1) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(188, 19, 254, 0.1) 1px, transparent 1px);
+            background-size: 30px 30px; z-index: -1; animation: gridMove 15s linear infinite;
+        }
+        @keyframes gridMove { 0% { background-position: 0 0; } 100% { background-position: -30px -30px; } }
+        .modal {
+            width: 90%; max-width: 900px; background: var(--bg-glass);
+            border: 2px solid var(--neon-purple); border-radius: 8px;
+            transform: translateY(20px) scale(0.98); transition: 0.4s;
+            box-shadow: 0 0 30px var(--neon-purple);
+        }
+        .modal-overlay.active .modal { opacity: 1; transform: translateY(0) scale(1); }
+        .modal-header {
+            padding: 20px; background: rgba(0, 0, 0, 0.6);
+            border-bottom: 1px solid rgba(255,255,255,0.1); position: relative;
+        }
+        .modal-header h2 {
+            margin: 0; font-size: 2.5rem; text-transform: uppercase;
+            text-shadow: 0 0 10px currentColor; 
+        }
+        
+        #damonModal h2, #jamieModal h2 { color: var(--gold); text-shadow: 0 0 15px var(--gold); }
+        #murdocModal h2 { color: var(--neon-purple); }
+        #tdModal h2 { color: var(--neon-cyan); }
+        #noodleModal h2 { color: var(--neon-pink); }
+        #russelModal h2 { color: var(--neon-yellow); }
+
+        .close-modal {
+            position: absolute; top: 20px; right: 20px; background: none; border: none;
+            color: white; font-size: 1.5rem; cursor: none; width: 40px; height: 40px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+        .close-modal:hover { color: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple); }
+        
+        .modal-body { padding: 30px; max-height: 60vh; overflow-y: auto; }
+        .modal-body p { color: #e0e0e0; margin-bottom: 20px; font-size: 1.1rem; }
+        
+        .modal-body .highlight { font-weight: bold; }
+        #damonModal .highlight, #jamieModal .highlight { color: var(--gold); text-shadow: 0 0 10px var(--gold); }
+        #murdocModal .highlight { color: var(--neon-purple); text-shadow: 0 0 5px var(--neon-purple); }
+        #tdModal .highlight { color: var(--neon-cyan); text-shadow: 0 0 5px var(--neon-cyan); }
+        #noodleModal .highlight { color: var(--neon-pink); text-shadow: 0 0 5px var(--neon-pink); }
+        #russelModal .highlight { color: var(--neon-yellow); text-shadow: 0 0 5px var(--neon-yellow); }
+
+        /* ================= 音频播放器 ================= */
+        .audio-player-container {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px; max-width: 1000px; margin: 30px auto 0;
+        }
+        .audio-card {
+            background: rgba(10, 10, 30, 0.7); border: 1px solid var(--neon-purple);
+            border-radius: 8px; padding: 20px; text-align: center;
+            transition: 0.4s; backdrop-filter: blur(5px);
+        }
+        .audio-card:hover {
+            transform: translateY(-10px); border-color: var(--neon-purple);
+            box-shadow: 0 0 20px var(--neon-purple);
+        }
+        .audio-title {
+            color: var(--neon-cyan); font-size: 1.4rem; margin-bottom: 15px;
+            text-shadow: 0 0 8px var(--neon-cyan);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        audio { width: 100%; height: 45px; }
+        audio::-webkit-media-controls-panel {
+            background: #fff; border: 1px solid var(--neon-purple);
+        }
+        
+        .netease-link-card {
+            background: rgba(10, 10, 30, 0.7); border: 1px solid var(--neon-purple);
+            border-radius: 8px; padding: 15px 25px; display: flex;
+            align-items: center; justify-content: center; text-align: center;
+            max-width: 800px; margin: 0 auto 40px; transition: 0.4s;
+        }
+        .netease-link-card:hover { transform: translateY(-5px); box-shadow: 0 0 20px var(--neon-purple); }
+        .netease-content { display: flex; align-items: center; gap: 25px; }
+        .netease-icon { font-size: 2.5rem; color: var(--neon-purple); }
+        .netease-link {
+            background: var(--neon-purple); color: white; padding: 8px 25px;
+            border-radius: 30px; text-decoration: none; font-weight: bold;
+        }
+
+        /* ================= 视频播放器 ================= */
+        .video-player-container {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px; max-width: 1200px; margin: 0 auto;
+        }
+        .video-card {
+            background: rgba(10, 10, 30, 0.7);
+            border: 1px solid var(--neon-purple);
+            border-radius: 8px; overflow: hidden; transition: 0.4s;
+        }
+        .video-card:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 0 25px var(--neon-purple);
+        }
+        .video-title {
+            padding: 15px 20px; background: rgba(0, 0, 0, 0.6);
+            color: var(--neon-purple); font-size: 1.3rem; margin: 0;
+            text-shadow: 0 0 8px var(--neon-purple);
+            border-bottom: 1px solid rgba(188, 19, 254, 0.3);
+        }
+        .video-container {
+            position: relative; width: 100%; aspect-ratio: 16/9; background: #000;
+            cursor: pointer;
+        }
+        .video-cover {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 2; transition: opacity 0.3s;
+            opacity: 1; pointer-events: none;
+        }
+        .video-container.video-playing .video-cover { opacity: 0; }
+        
+        .central-btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80px; height: 80px; background-color: var(--neon-purple);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px var(--neon-purple); transition: 0.3s;
+            z-index: 10; border: none; outline: none;
+        }
+        .central-btn:hover { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 40px var(--neon-purple); }
+        
+        .central-play-btn::after {
+            content: ''; width: 0; height: 0; border-style: solid;
+            border-width: 15px 0 15px 25px; border-color: transparent transparent transparent white;
+            margin-left: 5px;
+        }
+        .central-pause-btn { opacity: 0; pointer-events: none; }
+        .central-pause-btn::after {
+            content: ''; width: 24px; height: 30px;
+            border-left: 8px solid white; border-right: 8px solid white;
+        }
+        
+        .video-container.video-playing .central-play-btn { opacity: 0; pointer-events: none; }
+        .video-container.video-playing:hover .central-pause-btn { opacity: 1; pointer-events: auto; }
+        
+        video {
+            width: 100%; height: 100%; display: block; object-fit: cover;
+        }
+        video::-webkit-media-controls {
+            opacity: 0 !important; transition: opacity 0.3s;
+        }
+        .video-container.video-playing:hover video::-webkit-media-controls {
+            opacity: 1 !important;
+        }
+        video::-webkit-media-controls-panel {
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            border-top: 1px solid var(--neon-purple);
+            position: absolute; bottom: 0; width: 100%;
+        }
+        video::-webkit-media-controls-play-button,
+        video::-webkit-media-controls-start-playback-button {
+            display: none !important; -webkit-appearance: none;
+        }
+        video::-webkit-media-controls-current-time-display,
+        video::-webkit-media-controls-time-remaining-display {
+            color: var(--neon-purple) !important;
+            text-shadow: 0 0 5px var(--neon-purple);
+            font-weight: bold;
+        }
+        video::-webkit-media-controls-volume-slider { background: var(--neon-purple); }
+
+        /* ================= 底部 & 粒子 ================= */
+        .footer {
+            background: rgba(0, 0, 0, 0.8); padding: 20px; text-align: center;
+            border-top: 1px solid var(--neon-purple);
+            box-shadow: 0 -2px 15px var(--neon-purple);
+        }
+        .footer p { color: var(--neon-pink); text-shadow: 0 0 8px var(--neon-pink); margin: 0; }
+        .particle-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9997; overflow: hidden;
+        }
+        .particle {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            opacity: 0.8; animation: particleAnim 1s ease-out forwards;
+        }
+        @keyframes particleAnim {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(0.2) translate(var(--move-x), var(--move-y)); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="cursor"></div>
+    <div class="particle-container" id="particleContainer"></div>
+    <canvas id="canvas-bg"></canvas>
+    
+    <!-- 导航栏 -->
+    <nav>
+        <div class="logo">GORILLAZ</div>
+        <div class="nav-links">
+            <a href="#founder" class="nav-link hover-target">创始人</a>
+            <a href="#members" class="nav-link hover-target">成员</a>
+            <a href="#album" class="nav-link hover-target">歌单</a>
+            <a href="#mv" class="nav-link hover-target">MV</a>
+        </div>
+    </nav>
+    
+    <!-- 首页 -->
+    <header class="hero">
+        <video id="myVideo" autoplay loop playsinline class="video-bg">
+            <source src="./images/bg-video.mp4" type="video/mp4">
+        </video>
+        <button id="audioBtn" class="sound-toggle">🔊 关闭音乐</button>
+        <div class="hero-content">
+            <!-- 迷幻摇滚字体结构 -->
+            <h1 class="psychedelic-text" id="psychoText">
+                <!-- JS 会自动在这里生成带动画的字母 -->
+                Virtual Reality
+            </h1>
+            <p>British Band</p>
+        </div>
+    </header>
+    
+    <!-- 创始人 -->
+    <section id="founder" class="container">
+        <div class="section-title">BAND FOUNDER</div>
+        <div class="grid">
+            <div class="founder-card hover-target" data-modal="damon">
+                <div class="founder-img" style="background-image: url('./images/damon.jpg');"></div>
+                <div class="founder-overlay"><h3>Damon Albarn</h3><p>Music & Vocals</p></div>
+            </div>
+            <div class="founder-card hover-target" data-modal="jamie">
+                <div class="founder-img" style="background-image: url('./images/jamie.jpg');"></div>
+                <div class="founder-overlay"><h3>Jamie Hewlett</h3><p>Visual Design</p></div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- 成员 -->
+    <section id="members" class="container">
+        <div class="section-title">THE GANG</div>
+        <div class="grid">
+            <div class="card hover-target" data-modal="murdoc">
+                <div class="card-img" style="background-image: url('./images/murdoc.jpg');"></div>
+                <div class="card-overlay"><h3>Murdoc</h3><p>Bass Guitar</p></div>
+            </div>
+            <div class="card hover-target" data-modal="td">
+                <div class="card-img" style="background-image: url('./images/2d.jpg');"></div>
+                <div class="card-overlay"><h3>2-D</h3><p>Vocals</p></div>
+            </div>
+            <div class="card hover-target" data-modal="noodle">
+                <div class="card-img" style="background-image: url('./images/noodle.jpg');"></div>
+                <div class="card-overlay"><h3>Noodle</h3><p>Guitar</p></div>
+            </div>
+            <div class="card hover-target" data-modal="russel">
+                <div class="card-img" style="background-image: url('./images/russel.jpg');"></div>
+                <div class="card-overlay"><h3>Russel</h3><p>Drums</p></div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- 歌单 -->
+    <section id="album" class="container">
+        <div class="section-title">ALBUM</div>
+        <div class="netease-link-card hover-target">
+            <div class="netease-content">
+                <div class="netease-icon">🎵</div>
+                <div class="netease-text">
+                    <h3 class="audio-title">网易云音乐主页</h3>
+                    <p style="color: #e0e0e0; margin-bottom: 5px;">收听更多Gorillaz官方作品</p>
+                    <a href="https://music.163.com/#/artist?id=93185" target="_blank" class="netease-link">立即跳转</a>
+                </div>
+            </div>
+        </div>
+        <div class="audio-player-container">
+            <div class="audio-card hover-target">
+                <h3 class="audio-title">Humility</h3>
+                <audio controls preload="none" class="foreground-media"><source src="./audio/gorillaz_humility.mp3" type="audio/mpeg"></audio>
+            </div>
+            <div class="audio-card hover-target">
+                <h3 class="audio-title">19/2000 (Soulchild Remix)</h3>
+                <audio controls preload="none" class="foreground-media"><source src="./audio/gorillaz_192000.mp3" type="audio/mpeg"></audio>
+            </div>
+            <div class="audio-card hover-target">
+                <h3 class="audio-title">She's My Collar</h3>
+                <audio controls preload="none" class="foreground-media"><source src="./audio/gorillaz_shecollar.mp3" type="audio/mpeg"></audio>
+            </div>
+            <div class="audio-card hover-target">
+                <h3 class="audio-title">Feel Good Inc.</h3>
+                <audio controls preload="none" class="foreground-media"><source src="./audio/gorillaz_feelgood.mp3" type="audio/mpeg"></audio>
+            </div>
+            <div class="audio-card hover-target">
+                <h3 class="audio-title">The Manifesto</h3>
+                <audio controls preload="none" class="foreground-media"><source src="./audio/gorillaz_manifesto.mp3" type="audio/mpeg"></audio>
+            </div>
+            <div class="audio-card hover-target">
+                <h3 class="audio-title">The God of Lying</h3>
+                <audio controls preload="none" class="foreground-media"><source src="./audio/gorillaz_godoflying.mp3" type="audio/mpeg"></audio>
+            </div>
+        </div>
+    </section>
+    
+    <!-- MV 视频 -->
+    <section id="mv" class="container" style="padding-bottom: 100px;">
+        <div class="section-title">MV</div>
+        <div class="video-player-container">
+            <div class="video-card hover-target">
+                <h3 class="video-title">Gorillaz Intro</h3>
+                <div class="video-container">
+                    <img src="./images/mv-cover-1.jpg" class="video-cover">
+                    <button class="central-btn central-play-btn hover-target"></button>
+                    <button class="central-btn central-pause-btn hover-target"></button>
+                    <video class="media-player foreground-media" preload="metadata"><source src="./video/gorillaz_intro.mp4" type="video/mp4"></video>
+                </div>
+            </div>
+            <div class="video-card hover-target">
+                <h3 class="video-title">Cracker Island</h3>
+                <div class="video-container">
+                    <img src="./images/mv-cover-2.jpg" class="video-cover">
+                    <button class="central-btn central-play-btn hover-target"></button>
+                    <button class="central-btn central-pause-btn hover-target"></button>
+                    <video class="media-player foreground-media" preload="metadata"><source src="./video/gorillaz_cracker.mp4" type="video/mp4"></video>
+                </div>
+            </div>
+            <div class="video-card hover-target">
+                <h3 class="video-title">Feel Good Inc.</h3>
+                <div class="video-container">
+                    <img src="./images/mv-cover-3.jpg" class="video-cover">
+                    <button class="central-btn central-play-btn hover-target"></button>
+                    <button class="central-btn central-pause-btn hover-target"></button>
+                    <video class="media-player foreground-media" preload="metadata"><source src="./video/gorillaz_feelgood_mv.mp4" type="video/mp4"></video>
+                </div>
+            </div>
+            <div class="video-card hover-target">
+                <h3 class="video-title">DARE</h3>
+                <div class="video-container">
+                    <img src="./images/mv-cover-4.jpg" class="video-cover">
+                    <button class="central-btn central-play-btn hover-target"></button>
+                    <button class="central-btn central-pause-btn hover-target"></button>
+                    <video class="media-player foreground-media" preload="metadata"><source src="./video/gorillaz_dare.mp4" type="video/mp4"></video>
+                </div>
+            </div>
+            <div class="video-card hover-target">
+                <h3 class="video-title">Humility (MV)</h3>
+                <div class="video-container">
+                    <img src="./images/mv-cover-5.jpg" class="video-cover">
+                    <button class="central-btn central-play-btn hover-target"></button>
+                    <button class="central-btn central-pause-btn hover-target"></button>
+                    <video class="media-player foreground-media" preload="metadata"><source src="./video/gorillaz_humility_mv.mp4" type="video/mp4"></video>
+                </div>
+            </div>
+            <div class="video-card hover-target">
+                <h3 class="video-title">On Melancholy Hill (MV)</h3>
+                <div class="video-container">
+                    <img src="./images/mv-cover-6.jpg" class="video-cover">
+                    <button class="central-btn central-play-btn hover-target"></button>
+                    <button class="central-btn central-pause-btn hover-target"></button>
+                    <video class="media-player foreground-media" preload="metadata"><source src="./video/gorillaz_melancholy.mp4" type="video/mp4"></video>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer class="footer">
+        <p>创作者小红书账号：5029830885</p>
+    </footer>
+
+    <!-- 弹窗内容 -->
+    <div class="modal-overlay" id="damonModal"><div class="modal-grid"></div><div class="modal"><div class="modal-header"><button class="close-modal">&times;</button><h2>Damon Albarn</h2></div><div class="modal-body">
+        <p><span class="highlight">Damon Albarn</span>（戴蒙・亚邦） 1968 年 3 月 23 日生于英国伦敦，是英国乐坛极具影响力的音乐人。他先以英伦摇滚乐队 Blur 的主唱兼主要作曲人成名，创作了《Parklife》等经典曲目，推动 Blur 成为英伦摇滚领军乐队。</p>
+        <p>1998 年，他与杰米・休利特共创虚拟乐队 Gorillaz，作为乐队音乐核心，融合另类摇滚、说唱等多元风格，还邀约众多跨领域艺人合作，助力乐队拿下吉尼斯 “最成功虚拟乐队” 认证。</p>
+        <p>2010 年他被《Q》杂志评为史上最伟大乐队主唱第四名，2016 年获大英帝国勋章。</p>
+    </div></div></div>
+    
+    <div class="modal-overlay" id="jamieModal"><div class="modal-grid"></div><div class="modal"><div class="modal-header"><button class="close-modal">&times;</button><h2>Jamie Hewlett</h2></div><div class="modal-body">
+        <p><span class="highlight">Jamie Hewlett</span>（杰米・休利特） 1968 年 4 月 3 日生于英国伦敦，知名漫画家与视觉设计师。1988 年他和艾伦・马丁共创的漫画《坦克女孩》风靡一时，成为亚文化标志。</p>
+        <p>1998 年与戴蒙联合打造 Gorillaz 后，他包揽乐队四位虚拟成员的形象设计与所有视觉相关创作，赋予虚拟角色独特人格。</p>
+        <p>2006 年他获伦敦设计博物馆 “年度设计师”，2009 年还和戴蒙因北京奥运会相关动画片段获英国电影学院奖，其粗粝又充满创意的视觉风格成为 Gorillaz 的标志性符号。</p>
+    </div></div></div>
+    
+    <div class="modal-overlay" id="murdocModal"><div class="modal-grid"></div><div class="modal"><div class="modal-header"><button class="close-modal">&times;</button><h2>Murdoc Niccals</h2></div><div class="modal-body">
+        <p><span class="highlight">Murdoc Niccals</span>（贝斯手，乐队发起者） 1966年出生于英国斯托克，他的童年满是阴霾，不仅在校遭受师生霸凌，还长期遭受酒鬼父亲的辱骂与暴力。这些经历让他变得崇尚恶魔，成为撒旦教徒，性格乖张且爱制造混乱。</p>
+        <p>他凭借自学练就了出色的贝斯技巧和创作能力，一手发起组建了Gorillaz。他因绿色皮肤、龅牙和阴阳眼无法成为主唱而心怀不甘，便常欺负主唱2-D。此外，他还热衷于搞怪与黑暗仪式，曾在墓园拍摄MV时用黑魔法召唤僵尸猴攻击乐队成员，乐在其中。</p>
+        <p>后续在专辑《The Now Now》中他因入狱缺席乐队活动，而在《Cracker Island》里，他痴迷邪教，带领乐队前往饼干岛，让整个乐队陷入新的麻烦。</p>
+    </div></div></div>
+    
+    <div class="modal-overlay" id="tdModal"><div class="modal-grid"></div><div class="modal"><div class="modal-header"><button class="close-modal">&times;</button><h2>2-D</h2></div><div class="modal-body">
+        <p><span class="highlight">2-D</span>（主唱/键盘手） 原名史杜柏，1977年5月23日生于英国克劳利。11岁时从树上掉落撞到头，头发全部脱落，之后长出的新头发都是深蓝色。</p>
+        <p>他的双眼损伤源于Murdoc造成的两次车祸，也正因这两次事故，他被Murdoc胁迫加入乐队。2-D内心柔软善良，还带点中二气质，喜欢弹钢琴、穿轮滑鞋刷街，虽总爱装高冷，却常常是现场第一个忍不住跳舞的人。</p>
+        <p>他一直没意识到自己被Murdoc欺负，反而将其视作好哥们。在专辑《The Now Now》中，他成为核心人物，专辑围绕他展开了对孤独、自我身份的反思，讲述他努力寻找自己在乐队和世界中位置的故事。</p>
+    </div></div></div>
+    
+    <div class="modal-overlay" id="noodleModal"><div class="modal-grid"></div><div class="modal"><div class="modal-header"><button class="close-modal">&times;</button><h2>Noodle</h2></div><div class="modal-body">
+        <p><span class="highlight">Noodle</span>（吉他手/背景主唱） 来自日本大阪，身世十分特殊。她小时候和其他22名儿童一同进入日本超级士兵训练营，后来该项目被废除，负责执行清理任务的Kyuzo不忍杀她，便让她失忆后用快递箱将她走私到英国的Kong Studios，就此加入乐队。</p>
+        <p>她不仅吉他技艺高超，还拥有超强格斗技术。在《Demon Days》相关剧情中，她发现自己曾是战争武器般的存在。其在风车岛遭遇袭击后一度被认为失踪，实则幸存，期间还独自与邪恶组织“The Black Clouds”展开斗争。</p>
+        <p>而在《El Mañana》的MV里，她独自坐在风车岛悬崖边弹吉他，遭遇武装直升机攻击的画面也令人印象深刻。</p>
+    </div></div></div>
+    
+    <div class="modal-overlay" id="russelModal"><div class="modal-grid"></div><div class="modal"><div class="modal-header"><button class="close-modal">&times;</button><h2>Russel Hobbs</h2></div><div class="modal-body">
+        <p><span class="highlight">Russel Hobbs</span>（鼓手） 身为来自美国纽约布鲁克林的黑人小哥，他曾接受过良好的贵族学校教育，举止得体、谈吐不凡。</p>
+        <p>他的人生转折发生在泽维尔青年成就者学校，当时他被恶魔附身并攻击了同学，被开除后昏迷了四年，体内恶魔最终被神父驱逐。后来他转入布鲁克林高中，结识了许多有嘻哈天赋的同学，由此开启音乐之路。</p>
+        <p>他的特殊之处在于身体时常被鬼魂控制，尤其是他最好的朋友——说唱幽灵Del。在专辑《Plastic Beach》的故事中，被众多说唱鬼魂附身后的他，发生了巨大的变化，和其他成员一同在Murdoc打造的塑料浮岛人造天堂中艰难适应自身角色。而在《Cracker Island》的剧情里，他堪称乐队中较为清醒的成员，与其他成员共同探索邪教背后的奥秘。</p>
+    </div></div></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 0. 生成迷幻文字动画 (Letter Splitting)
+            const textContainer = document.getElementById('psychoText');
+            if(textContainer) {
+                const rawText = textContainer.innerText.trim();
+                textContainer.innerHTML = ''; // 清空原文
+                
+                // 按单词拆分，避免flex换行断词
+                const words = rawText.split(/\s+/);
+                
+                let globalCharIndex = 0;
+                
+                words.forEach((word, wordIdx) => {
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'word-wrapper';
+                    
+                    word.split('').forEach(char => {
+                        const charSpan = document.createElement('span');
+                        charSpan.className = 'char';
+                        charSpan.innerText = char;
+                        // 设置CSS变量用于计算延迟
+                        charSpan.style.setProperty('--char-index', globalCharIndex++);
+                        wordSpan.appendChild(charSpan);
+                    });
+
+                    textContainer.appendChild(wordSpan);
+                });
+            }
+
+            // 1. 鼠标特效
+            const cursor = document.querySelector('.cursor');
+            document.addEventListener('mousemove', (e) => {
+                cursor.style.left = `${e.clientX}px`; cursor.style.top = `${e.clientY}px`;
+            });
+            document.querySelectorAll('.hover-target').forEach(item => {
+                item.addEventListener('mouseover', () => cursor?.classList.add('hovered'));
+                item.addEventListener('mouseleave', () => cursor?.classList.remove('hovered'));
+            });
+
+            // 2. 星空背景
+            const canvas = document.getElementById('canvas-bg');
+            const ctx = canvas.getContext('2d');
+            let width, height, stars = [];
+            function initStars() {
+                width = window.innerWidth; height = window.innerHeight;
+                canvas.width = width; canvas.height = height;
+                stars = [];
+                for (let i = 0; i < 200; i++) stars.push({ x: Math.random() * width, y: Math.random() * height, z: Math.random() * width });
+            }
+            function animateStars() {
+                ctx.fillStyle = "#000"; ctx.fillRect(0, 0, width, height);
+                stars.forEach(star => {
+                    star.z -= 3;
+                    if (star.z <= 0) { star.z = width; star.x = Math.random() * width; star.y = Math.random() * height; }
+                    const x = (star.x - width / 2) * (width / star.z) + width / 2;
+                    const y = (star.y - height / 2) * (width / star.z) + height / 2;
+                    const size = (width / star.z) * 1.5;
+                    ctx.beginPath(); ctx.fillStyle = Math.random() > 0.5 ? "#00f3ff" : "#ff0099";
+                    ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+                });
+                requestAnimationFrame(animateStars);
+            }
+            window.addEventListener('resize', initStars); initStars(); animateStars();
+
+            // 3. 背景音开关 & 智能互斥逻辑
+            const bgVideo = document.getElementById('myVideo');
+            const audioBtn = document.getElementById('audioBtn');
+            const foregroundMedia = document.querySelectorAll('.foreground-media');
+
+            // 尝试自动开启背景音
+            if (bgVideo) {
+                bgVideo.volume = 0.5;
+                let playPromise = bgVideo.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Auto-play blocked, muting.");
+                        bgVideo.muted = true;
+                        if(audioBtn) {
+                            audioBtn.innerHTML = "🔇 开启音乐";
+                            audioBtn.style.color = "var(--neon-pink)";
+                            audioBtn.style.borderColor = "var(--neon-pink)";
+                        }
+                    });
+                }
+            }
+
+            // 开关按钮逻辑
+            if (audioBtn && bgVideo) {
+                audioBtn.addEventListener('click', () => {
+                    bgVideo.muted = !bgVideo.muted;
+                    if(!bgVideo.muted) {
+                        bgVideo.play(); 
+                        audioBtn.innerHTML = "🔊 关闭音乐";
+                        audioBtn.style.color = "var(--neon-cyan)";
+                        audioBtn.style.borderColor = "var(--neon-cyan)";
+                    } else {
+                        audioBtn.innerHTML = "🔇 开启音乐";
+                        audioBtn.style.color = "var(--neon-pink)";
+                        audioBtn.style.borderColor = "var(--neon-pink)";
+                    }
+                });
+            }
+
+            // 媒体互斥逻辑
+            foregroundMedia.forEach(media => {
+                media.addEventListener('play', () => {
+                    // 暂停其他前台媒体
+                    foregroundMedia.forEach(other => {
+                        if (other !== media) other.pause();
+                    });
+                    // 背景静音
+                    if (bgVideo && !bgVideo.muted) {
+                        bgVideo.muted = true;
+                        audioBtn.innerHTML = "🔇 音乐已暂停";
+                        audioBtn.style.color = "var(--neon-pink)";
+                        audioBtn.style.borderColor = "var(--neon-pink)";
+                    }
+                });
+
+                // 暂停时自动恢复背景音
+                const restoreBgAudio = () => {
+                    const isAnyPlaying = Array.from(foregroundMedia).some(m => !m.paused && !m.ended);
+                    if (!isAnyPlaying && bgVideo) {
+                        bgVideo.muted = false;
+                        audioBtn.innerHTML = "🔊 关闭音乐";
+                        audioBtn.style.color = "var(--neon-cyan)";
+                        audioBtn.style.borderColor = "var(--neon-cyan)";
+                    }
+                };
+                media.addEventListener('pause', restoreBgAudio);
+                media.addEventListener('ended', restoreBgAudio);
+            });
+
+            // 4. 视频播放器逻辑
+            document.querySelectorAll('.video-container').forEach(container => {
+                const video = container.querySelector('.media-player');
+                const playBtn = container.querySelector('.central-play-btn');
+                const pauseBtn = container.querySelector('.central-pause-btn');
+
+                video.controls = true; 
+
+                function togglePlay() {
+                    if (video.paused) {
+                        video.play().catch(e => console.error("Play error:", e));
+                    } else {
+                        video.pause();
+                    }
+                }
+
+                playBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    togglePlay();
+                });
+
+                pauseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    togglePlay();
+                });
+
+                container.addEventListener('click', function(e) {
+                    if (e.target.closest('video::-webkit-media-controls') || e.target.tagName === 'VIDEO') return; 
+                    togglePlay();
+                });
+
+                video.addEventListener('play', () => container.classList.add('video-playing'));
+                video.addEventListener('pause', () => container.classList.remove('video-playing'));
+                video.addEventListener('ended', () => {
+                    container.classList.remove('video-playing');
+                    video.load(); 
+                });
+            });
+
+            // 5. 导航栏滚动激活
+            const sections = document.querySelectorAll('.container[id]');
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            window.addEventListener('scroll', () => {
+                if (window.scrollY < 100) {
+                    navLinks.forEach(link => link.classList.remove('active'));
+                    return; 
+                }
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (scrollY >= sectionTop - 250) current = section.getAttribute('id');
+                });
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').includes(current)) link.classList.add('active');
+                });
+            });
+
+            navLinks.forEach(link => link.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+            }));
+
+            // 6. 弹窗 & 粒子
+            const particleContainer = document.getElementById('particleContainer');
+            function createParticles(x, y) {
+                for (let i = 0; i < 20; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'particle';
+                    p.style.backgroundColor = ['#00f3ff', '#ff0099', '#bc13fe'][Math.floor(Math.random()*3)];
+                    p.style.left = x + 'px'; p.style.top = y + 'px';
+                    p.style.setProperty('--move-x', (Math.random()*100 - 50) + 'px');
+                    p.style.setProperty('--move-y', (Math.random()*100 - 50) + 'px');
+                    particleContainer.appendChild(p);
+                    setTimeout(() => p.remove(), 1000);
+                }
+            }
+            document.querySelectorAll('[data-modal]').forEach(item => {
+                item.addEventListener('click', function() {
+                    const modalId = this.dataset.modal + 'Modal';
+                    const modal = document.getElementById(modalId);
+                    if(modal) {
+                        modal.classList.add('active');
+                        const rect = this.getBoundingClientRect();
+                        createParticles(rect.left + rect.width/2, rect.top + rect.height/2);
+                    }
+                });
+            });
+            document.querySelectorAll('.close-modal, .modal-overlay').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    if (this === e.target || this.classList.contains('close-modal')) {
+                        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+```
